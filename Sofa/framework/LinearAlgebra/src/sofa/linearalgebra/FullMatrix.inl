@@ -42,7 +42,26 @@ FullMatrix<Real>::FullMatrix(Index nbRow, Index nbCol)
     if (type::hardening::checkOverflow(nbRow,nbCol))
         throw std::overflow_error("FullMatrix: allocation size overflow");
     allocsize = nbRow * nbCol;
+    // ensure size is a multiple of 4 
     data = new Real[allocsize];
+}
+
+/** specialisation for double
+  * - later work with intrinsics requies double words and multiples of 4
+  */
+template<>
+FullMatrix<double>::FullMatrix(Index nbRow, Index nbCol)
+    : data(nullptr), nRow(nbRow), nCol(nbCol), pitch(nbCol), allocsize(0)
+{
+    if (type::hardening::checkOverflow(nbRow,nbCol))
+        throw std::overflow_error("FullMatrix: allocation size overflow");
+    allocsize = nbRow * nbCol;
+    
+    // ensure size is a multiple of 4 double words
+    allocsize += allocsize % 4;
+    data = new double[allocsize];
+    // initialise so any extra don't cause problems
+    memset( data, 0x00, allocsize * sizeof( double ));
 }
 
 template<class Real>
@@ -110,6 +129,54 @@ void FullMatrix<Real>::resize(Index nbRow, Index nbCol)
                     delete[] data;
                 allocsize = newSize;
                 data = new Real[allocsize];
+            }
+        }
+        pitch = nbCol;
+        nCol = nbCol;
+        nRow = nbRow;
+    }
+    clear();
+}
+template<>
+void FullMatrix<double>::resize(Index nbRow, Index nbCol)
+{
+    if constexpr ( FULLMATRIX_VERBOSE )
+    {
+        if (nbRow != rowSize() || nbCol != colSize())
+        {
+            msg_info() << /*this->Name() << */ ": resize(" << nbRow << "," << nbCol << ")";
+        }
+    }
+    if (type::hardening::checkOverflow(nbRow,nbCol))
+    {
+        msg_error() << "Cannot resize matrix: allocation size overflow for (" << nbRow << "," << nbCol << ")";
+        return;
+    }
+    if (nbCol != nCol || nbRow != nRow)
+    {
+        const Index newSize = nbRow * nbCol;
+        if (allocsize < 0)
+        {
+            if (newSize > -allocsize)
+            {
+                msg_error() << "Cannot resize preallocated matrix to size (" << nbRow << "," << nbCol << ")";
+                return;
+            }
+        }
+        else
+        {
+            if (newSize > allocsize)
+            {
+                if (allocsize > 0)
+                    delete[] data;
+                allocsize = newSize;
+
+		// ensure size is a multiple of 4 double words
+		allocsize += allocsize % 4;
+
+                data = new double[allocsize];
+		// initialise so any extra don't cause problems
+		memset( data, 0x00, allocsize * sizeof( double ));
             }
         }
         pitch = nbCol;

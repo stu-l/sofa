@@ -34,6 +34,8 @@
 #include <sofa/simulation/task/MainTaskSchedulerFactory.h>
 #include <sofa/simulation/task/ParallelForEach.h>
 
+#include <immintrin.h>
+#include <iostream>
 
 namespace sofa::component::linearsolver::direct 
 {
@@ -139,6 +141,8 @@ void SparseLDLSolver<TMatrix,TVector,TThreadManager>::invert(Matrix& M)
 {
     factorize(M, (InvertData *) this->getMatrixInvertData(&M));
 }
+
+
 
 template <class TMatrix, class TVector, class TThreadManager>
 bool SparseLDLSolver<TMatrix, TVector, TThreadManager>::doAddJMInvJtLocal(ResMatrixType* result, const JMatrixType* J, SReal fact, InvertData* data)
@@ -253,12 +257,43 @@ bool SparseLDLSolver<TMatrix, TVector, TThreadManager>::doAddJMInvJtLocal(ResMat
                     Real* lineI = JLinv[i];
                     Real* lineJ = JLinvDinv[j];
 
-                    value = 0;
-                    for (int k = 0; k < data->n; ++k)
-                    {
-                        value += lineJ[k] * lineI[k];
-                    }
-                    value *= fact;
+		    value = 0;
+		    // don't call loop end value repeatedly inside loop if the loop doesn't change it.
+		    // the compiler has no way to know and repeats the action.
+		    const int d{ data->n };
+
+		    // {
+		    //   for (int k = 0; k < data->n; ++k)
+		    // 	{
+		    // 	  value += lineJ[k] * lineI[k];
+		    // 	}
+		    //   value *= fact;
+		    // }
+		    
+		    //		    auto valueI{ value };
+		    {
+		    ////////////// intrinsic version
+		      __m256d v = _mm256_setzero_pd();
+
+		      for (int k = 0; k < d; k += 4)
+			{
+			  __m256d j = _mm256_loadu_pd( &lineJ[k] );
+			  __m256d i = _mm256_loadu_pd( &lineI[k] );
+			  v = _mm256_fmadd_pd( j, i, v );
+			}
+
+		      __m128d lo = _mm256_castpd256_pd128(v);
+		      __m128d hi = _mm256_extractf128_pd(v, 1);
+
+		      lo = _mm_add_pd(lo, hi);
+		      lo = _mm_hadd_pd(lo, lo);
+
+		      value = _mm_cvtsd_f64(lo);
+		    }
+
+		    // // same value confirmation
+		    // if ( value != valueI )
+		    //   std::cout << "value failue " << value << ' ' << valueI << '\n';
                 }
             }
 
