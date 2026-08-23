@@ -259,18 +259,18 @@ bool SparseLDLSolver<TMatrix, TVector, TThreadManager>::doAddJMInvJtLocal(ResMat
 
 		    value = 0;
 		    // don't call loop end value repeatedly inside loop if the loop doesn't change it.
-		    // the compiler has no way to know and repeats the action.
-		    const int d{ data->n };
+		    // the compiler has no way to know and repeats the action, as we know it's not changed help it along.
+		    int d{ data->n };
 
 		    // {
-		    //   for (int k = 0; k < data->n; ++k)
+		    //   for (int k = 0; k < d; ++k)
 		    // 	{
 		    // 	  value += lineJ[k] * lineI[k];
 		    // 	}
 		    //   value *= fact;
 		    // }
 		    
-		    //		    auto valueI{ value };
+		    //    auto valueI{ value };
 		    {
 		    ////////////// intrinsic version
 		      __m256d v = _mm256_setzero_pd();
@@ -288,11 +288,14 @@ bool SparseLDLSolver<TMatrix, TVector, TThreadManager>::doAddJMInvJtLocal(ResMat
 		      lo = _mm_add_pd(lo, hi);
 		      lo = _mm_hadd_pd(lo, lo);
 
-		      value = _mm_cvtsd_f64(lo);
+		      value = fact * _mm_cvtsd_f64(lo);
+		      // test version		      valueI = fact * _mm_cvtsd_f64(lo);
 		    }
 
-		    // // same value confirmation
-		    // if ( value != valueI )
+		    // same value confirmation
+		    // const double diff = std::abs( value - valueI );
+		    
+		    // if ( diff > 1e-12 )
 		    //   std::cout << "value failue " << value << ' ' << valueI << '\n';
                 }
             }
