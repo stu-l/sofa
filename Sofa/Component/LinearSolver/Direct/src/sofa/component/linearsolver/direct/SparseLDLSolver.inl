@@ -260,39 +260,50 @@ bool SparseLDLSolver<TMatrix, TVector, TThreadManager>::doAddJMInvJtLocal(ResMat
 		    value = 0;
 		    // don't call loop end value repeatedly inside loop if the loop doesn't change it.
 		    // the compiler has no way to know and repeats the action, as we know it's not changed help it along.
-		    int d{ data->n };
+		    const int d{ data->n };
 
-		    // {
+		    // old version for test purposes
 		    //   for (int k = 0; k < d; ++k)
 		    // 	{
 		    // 	  value += lineJ[k] * lineI[k];
 		    // 	}
 		    //   value *= fact;
 		    // }
+		    //		    auto valueI{ value };
+
 		    
-		    //    auto valueI{ value };
-		    {
 		    ////////////// intrinsic version
-		      __m256d v = _mm256_setzero_pd();
+		    __m256d v0 = _mm256_setzero_pd();
+		    __m256d v1 = _mm256_setzero_pd();
 
-		      for (int k = 0; k < d; k += 4)
-			{
-			  __m256d j = _mm256_loadu_pd( &lineJ[k] );
-			  __m256d i = _mm256_loadu_pd( &lineI[k] );
-			  v = _mm256_fmadd_pd( j, i, v );
-			}
+		    for (int k = 0; k < d; k += 8)
+		      {
+			__m256d j0 = _mm256_loadu_pd( &lineJ[k] );
+			__m256d i0 = _mm256_loadu_pd( &lineI[k] );
 
-		      __m128d lo = _mm256_castpd256_pd128(v);
-		      __m128d hi = _mm256_extractf128_pd(v, 1);
+			__m256d j1 = _mm256_loadu_pd( &lineJ[k+4] );
+			__m256d i1 = _mm256_loadu_pd( &lineI[k+4] );
+			
+			v0 = _mm256_fmadd_pd( j0, i0, v0 );
+			v1 = _mm256_fmadd_pd( j1, i1, v1 );
+		      }
 
-		      lo = _mm_add_pd(lo, hi);
-		      lo = _mm_hadd_pd(lo, lo);
+		    __m128d lo0 = _mm256_castpd256_pd128(v0);
+		    __m128d hi0 = _mm256_extractf128_pd(v0, 1);
 
-		      value = fact * _mm_cvtsd_f64(lo);
-		      // test version		      valueI = fact * _mm_cvtsd_f64(lo);
-		    }
+		    lo0 = _mm_add_pd(lo0, hi0);
+		    lo0 = _mm_hadd_pd(lo0, lo0);
 
-		    // same value confirmation
+		    __m128d lo1 = _mm256_castpd256_pd128(v1);
+		    __m128d hi1 = _mm256_extractf128_pd(v1, 1);
+
+		    lo1 = _mm_add_pd(lo1, hi1);
+		    lo1 = _mm_hadd_pd(lo1, lo1);
+
+		    value = fact * ( _mm_cvtsd_f64(lo0) + _mm_cvtsd_f64(lo1) );
+
+		    // test version
+		    // confirm old and new values are similar enough
 		    // const double diff = std::abs( value - valueI );
 		    
 		    // if ( diff > 1e-12 )

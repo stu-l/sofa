@@ -24,7 +24,7 @@
 #include <sofa/type/hardening.h>
 #include <limits>
 #include <stdexcept>
-
+#include <cstdlib>
 
 namespace sofa::linearalgebra
 {
@@ -42,7 +42,6 @@ FullMatrix<Real>::FullMatrix(Index nbRow, Index nbCol)
     if (type::hardening::checkOverflow(nbRow,nbCol))
         throw std::overflow_error("FullMatrix: allocation size overflow");
     allocsize = nbRow * nbCol;
-    // ensure size is a multiple of 4 
     data = new Real[allocsize];
 }
 
@@ -58,8 +57,9 @@ FullMatrix<double>::FullMatrix(Index nbRow, Index nbCol)
     allocsize = nbRow * nbCol;
     
     // ensure size is a multiple of 4 double words
-    allocsize += allocsize % 4;
-    data = new double[allocsize];
+    allocsize += allocsize % 8; //(64 / sizeof(double)); //8;
+    //    data = static_cast<double*>(aligned_alloc(32, sizeof(double) * allocsize));
+    data = new double[ sizeof(double) * allocsize ];
     // initialise so any extra don't cause problems
     memset( data, 0x00, allocsize * sizeof( double ));
 }
@@ -172,9 +172,10 @@ void FullMatrix<double>::resize(Index nbRow, Index nbCol)
                 allocsize = newSize;
 
 		// ensure size is a multiple of 4 double words
-		allocsize += allocsize % 4;
+		allocsize += allocsize % 8; //(64 / sizeof(double)); //8;
+		//		data = static_cast<double*>(aligned_alloc(32, sizeof(double) * allocsize));
+		data = new double[ sizeof(double) * allocsize ];
 
-                data = new double[allocsize];
 		// initialise so any extra don't cause problems
 		memset( data, 0x00, allocsize * sizeof( double ));
             }
