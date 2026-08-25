@@ -23,6 +23,10 @@
 #include <sofa/config.h>
 #include <cstring>
 #include <cmath>
+#include <cstdlib>
+
+#include <iostream>
+#include <string>
 
 namespace sofa::linearalgebra
 {
@@ -53,12 +57,45 @@ void solveLowerUnitriangularSystemCSR(
 {
     for (sofa::Size i = 0; i < systemSize; ++i)
     {
-        Real x_i = rightHandSideVector[i];
-        for (Integer p = CSR_rows[i]; p < CSR_rows[i + 1]; ++p)
-        {
-            x_i -= CSR_values[p] * solutionVector[CSR_columns[p]];
-        }
-        solutionVector[i] = x_i;
+      Real x0{ 0 }, x1{ 0 }, x2{ 0 }, x3{ 0 }, x4{ 0 };
+
+      const auto    dv{ std::div( CSR_rows[i + 1] - CSR_rows[i], 4 ) };
+      const Integer y { CSR_rows[i] + dv.quot * 4 };
+      const Integer y1{ y + dv.rem  };
+      Integer 	    p { CSR_rows[i] };
+      
+      for (; p < y; p += 4)
+	{
+	  x0 += CSR_values[p+0] * solutionVector[CSR_columns[p+0]];
+	  x1 += CSR_values[p+1] * solutionVector[CSR_columns[p+1]];
+	  x2 += CSR_values[p+2] * solutionVector[CSR_columns[p+2]];
+	  x3 += CSR_values[p+3] * solutionVector[CSR_columns[p+3]];
+	}
+      for( ; p < y1; ++p )
+	{
+	  x4 += CSR_values[p] * solutionVector[CSR_columns[p]];
+	}
+
+      //      Real ttl = rightHandSideVector[i] - x0 - x1 - x2 - x3 - x4;
+      solutionVector[i] = rightHandSideVector[i] - x0 - x1 - x2 - x3 - x4;
+
+      
+      // Real x_i 	= rightHandSideVector[i];
+      
+      // for (Integer p = CSR_rows[i]; p < CSR_rows[i + 1] ; ++p)
+      //   {
+      // 	  x_i -= CSR_values[p] * solutionVector[CSR_columns[p]];
+      //   }
+
+      // // check results match orriginal
+      // const Real diff = std::abs(ttl - x_i);
+      // if ( diff > 1e-12 )
+      // 	{
+      // 	  std::string s{ '(' + std::to_string( CSR_rows[i] ) + ' ' + std::to_string( CSR_rows[i + 1] ) + ' '  + std::to_string(y) + ' ' + std::to_string( y1 ) + ' ' + std::to_string( ttlX ) + '^' + std::to_string( ttl_i ) + 'v' + std::to_string( ttl ) + ' ' + std::to_string( x_i ) + ')'};
+      // 	  std::cout << s << ' ';
+      // 	}
+
+      //      solutionVector[i] = x_i;
     }
 }
 
