@@ -66,14 +66,14 @@ void solveLowerUnitriangularSystemCSR(
       
       for (; p < y; p += 4)
 	{
-	  x0 += CSR_values[p+0] * solutionVector[CSR_columns[p+0]];
-	  x1 += CSR_values[p+1] * solutionVector[CSR_columns[p+1]];
-	  x2 += CSR_values[p+2] * solutionVector[CSR_columns[p+2]];
-	  x3 += CSR_values[p+3] * solutionVector[CSR_columns[p+3]];
+	  x0 = std::fma(CSR_values[p+0], solutionVector[CSR_columns[p+0]], x0);
+	  x1 = std::fma(CSR_values[p+1], solutionVector[CSR_columns[p+1]], x1);
+	  x2 = std::fma(CSR_values[p+2], solutionVector[CSR_columns[p+2]], x2);
+	  x3 = std::fma(CSR_values[p+3], solutionVector[CSR_columns[p+3]], x3);
 	}
       for( ; p < y1; ++p )
 	{
-	  x4 += CSR_values[p] * solutionVector[CSR_columns[p]];
+	  x4 = std::fma(CSR_values[p], solutionVector[CSR_columns[p]], x4);
 	}
 
       //      Real ttl = rightHandSideVector[i] - x0 - x1 - x2 - x3 - x4;
